@@ -22,7 +22,15 @@ export const AppDataSource = new DataSource({
   entities: [SuperAdmin, Admin, Farmer, Stock, FeedRequest, FeedHistory],
   synchronize: process.env.NODE_ENV === 'development',
   logging: process.env.NODE_ENV === 'development',
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  ssl: {
+    rejectUnauthorized: false, // Allow self-signed certificates
+  },
+  extra: {
+    // Additional connection options
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
+    sslmode: 'require', // Require SSL connection
+  },
 });
 export async function connectDatabase() {
   try {
