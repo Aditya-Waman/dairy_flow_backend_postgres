@@ -115,11 +115,8 @@ async function start() {
     await connectDatabase();
 
     // Start data retention scheduler
-    if (process.env.NODE_ENV === 'production') {
-      scheduleDataRetention();
-    } else {
-      console.log('ℹ️  Data retention scheduler disabled in development mode');
-    }
+    scheduleDataRetention();
+    console.log(`ℹ️  Data retention scheduler enabled (runs daily at 2 AM)`);
 
     // Start server
     await fastify.listen({ port: PORT, host: HOST });

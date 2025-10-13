@@ -4,6 +4,7 @@ import { AppDataSource } from '../config/database.js';
 import { LessThan, In } from 'typeorm';
 
 const DATA_RETENTION_MONTHS = parseInt(process.env.DATA_RETENTION_MONTHS || '12');
+const ENABLE_DATA_RETENTION = process.env.ENABLE_DATA_RETENTION !== 'false';
 
 /**
  * Delete old feed requests and stock history after specified retention period
@@ -11,6 +12,10 @@ const DATA_RETENTION_MONTHS = parseInt(process.env.DATA_RETENTION_MONTHS || '12'
  * Note: SuperAdmin, Admin, and Farmer data persist permanently
  */
 export function scheduleDataRetention() {
+  if (!ENABLE_DATA_RETENTION) {
+    console.log('ℹ️  Data retention scheduler disabled via ENABLE_DATA_RETENTION=false');
+    return;
+  }
   // Run daily at 2:00 AM
   cron.schedule('0 2 * * *', async () => {
     try {
