@@ -132,6 +132,7 @@ export async function createRequest(request: FastifyRequest, reply: FastifyReply
       feedId: parseInt(feedId),
       qtyBags,
       price,
+      feedPrice: feed.sellingPrice, // Store current selling price
       createdBy: user.name,
     });
 

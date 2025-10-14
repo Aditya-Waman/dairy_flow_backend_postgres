@@ -23,6 +23,9 @@ export class FeedRequest {
   @Column({ type: 'decimal', precision: 10, scale: 2 })
   price!: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, name: 'feed_price' })
+  feedPrice!: number;
+
   @Column({ type: 'varchar', length: 20, default: 'Pending' })
   status!: RequestStatus;
 
