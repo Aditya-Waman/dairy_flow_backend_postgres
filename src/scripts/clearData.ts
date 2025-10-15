@@ -1,17 +1,23 @@
 import 'reflect-metadata';
 import { AppDataSource } from '../config/database.js';
-import { FeedRequest } from '../models/FeedRequest.js';
-import { FeedHistory } from '../models/FeedHistory.js';
 
 async function clearDatabaseData() {
   try {
     console.log('🔄 Connecting to database...');
-    await AppDataSource.initialize();
+    
+    // Create a temporary DataSource without synchronization for cleanup
+    const tempDataSource = new (AppDataSource.constructor as any)({
+      ...AppDataSource.options,
+      synchronize: false, // Disable synchronization for cleanup
+      logging: false,     // Disable logging for cleanup
+    });
+    
+    await tempDataSource.initialize();
     
     console.log('🗑️  Starting database cleanup...');
     
     // Get query runner for manual SQL execution
-    const queryRunner = AppDataSource.createQueryRunner();
+    const queryRunner = tempDataSource.createQueryRunner();
     await queryRunner.connect();
     
     try {

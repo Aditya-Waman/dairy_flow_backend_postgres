@@ -29,6 +29,16 @@ export class FeedRequest {
   @Column({ type: 'varchar', length: 20, default: 'Pending' })
   status!: RequestStatus;
 
+  // Historical prices stored at approval time
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, name: 'selling_price_at_approval' })
+  sellingPriceAtApproval?: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, name: 'purchase_price_at_approval' })
+  purchasePriceAtApproval?: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true, name: 'total_profit_at_approval' })
+  totalProfitAtApproval?: number;
+
   @Column({ type: 'varchar', length: 255, name: 'created_by' })
   createdBy!: string;
 

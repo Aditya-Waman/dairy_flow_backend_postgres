@@ -223,10 +223,18 @@ export async function approveRequest(request: FastifyRequest, reply: FastifyRepl
       });
       await manager.save(feedHistory);
 
-      // Update request status
+      // Calculate and store historical prices at approval time
+      const sellingPriceAtApproval = feed.sellingPrice;
+      const purchasePriceAtApproval = feed.purchasePrice;
+      const totalProfitAtApproval = (sellingPriceAtApproval - purchasePriceAtApproval) * feedRequest.qtyBags;
+
+      // Update request status with historical prices
       feedRequest.status = 'Approved';
       feedRequest.approvedBy = user.name;
       feedRequest.approvedAt = new Date();
+      feedRequest.sellingPriceAtApproval = sellingPriceAtApproval;
+      feedRequest.purchasePriceAtApproval = purchasePriceAtApproval;
+      feedRequest.totalProfitAtApproval = totalProfitAtApproval;
       await manager.save(feedRequest);
     });
 

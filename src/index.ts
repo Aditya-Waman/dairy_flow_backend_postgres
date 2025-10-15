@@ -16,7 +16,7 @@ import { reportRoutes } from './routes/reportRoutes.js';
 import { errorHandler, notFoundHandler } from './utils/errorHandler.js';
 import { scheduleDataRetention } from './utils/dataRetention.js';
 
-const PORT = parseInt(process.env.PORT || '5000');
+const PORT = parseInt(process.env.PORT || '3001');
 const HOST = process.env.HOST || '0.0.0.0';
 
 const fastify = Fastify({

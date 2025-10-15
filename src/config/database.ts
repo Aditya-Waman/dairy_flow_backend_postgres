@@ -20,42 +20,65 @@ export const AppDataSource = new DataSource({
   password: process.env.DB_PASSWORD || 'aditya',  
   database: process.env.DB_NAME || 'dairyflow',
   entities: [SuperAdmin, Admin, Farmer, Stock, FeedRequest, FeedHistory],
-  synchronize: process.env.NODE_ENV === 'development',
+  synchronize: false, // Disable synchronize to avoid schema conflicts
   logging: process.env.NODE_ENV === 'development',
-  ssl: {
+  ssl: process.env.DB_SSL === 'true' ? {
     rejectUnauthorized: false, // Allow self-signed certificates
-  },
+  } : false,
   extra: {
-    // Additional connection options
-    connectionTimeoutMillis: 10000,
-    idleTimeoutMillis: 30000,
-    sslmode: 'require', // Require SSL connection
+    // Additional connection options for Neon
+    connectionTimeoutMillis: 30000, // Increased timeout
+    idleTimeoutMillis: 60000, // Increased idle timeout
+    max: 20, // Maximum number of connections
+    sslmode: process.env.DB_SSL === 'true' ? 'require' : 'prefer',
   },
 });
 export async function connectDatabase() {
-  try {
-    if (!AppDataSource.isInitialized) {
-      await AppDataSource.initialize();
-    }
-    
-    console.log('✅ PostgreSQL connected successfully');
-    console.log(`📍 Database: ${AppDataSource.options.database}`);
-    if ('host' in AppDataSource.options && 'port' in AppDataSource.options) {
-      console.log(`🏠 Host: ${(AppDataSource.options as any).host}:${(AppDataSource.options as any).port}`);
-    }
-
-    // Handle graceful shutdown
-    process.on('SIGINT', async () => {
-      if (AppDataSource.isInitialized) {
-        await AppDataSource.destroy();
-        console.log('👋 PostgreSQL connection closed through app termination');
+  const maxRetries = 3;
+  let retryCount = 0;
+  
+  while (retryCount < maxRetries) {
+    try {
+      if (!AppDataSource.isInitialized) {
+        console.log(`🔄 Attempting to connect to PostgreSQL (attempt ${retryCount + 1}/${maxRetries})...`);
+        await AppDataSource.initialize();
       }
-      process.exit(0);
-    });
-    
-  } catch (error) {
-    console.error('❌ PostgreSQL connection failed:', error);
-    process.exit(1);
+      
+      console.log('✅ PostgreSQL connected successfully');
+      console.log(`📍 Database: ${AppDataSource.options.database}`);
+      if ('host' in AppDataSource.options && 'port' in AppDataSource.options) {
+        console.log(`🏠 Host: ${(AppDataSource.options as any).host}:${(AppDataSource.options as any).port}`);
+      }
+
+      // Handle graceful shutdown
+      process.on('SIGINT', async () => {
+        if (AppDataSource.isInitialized) {
+          await AppDataSource.destroy();
+          console.log('👋 PostgreSQL connection closed through app termination');
+        }
+        process.exit(0);
+      });
+      
+      return; // Success, exit the retry loop
+      
+    } catch (error: any) {
+      retryCount++;
+      console.error(`❌ PostgreSQL connection failed (attempt ${retryCount}/${maxRetries}):`, error.message);
+      
+      if (retryCount >= maxRetries) {
+        console.error('❌ Max retries reached. PostgreSQL connection failed permanently.');
+        console.error('💡 Please check:');
+        console.error('   1. Database server is running');
+        console.error('   2. Network connectivity');
+        console.error('   3. Database credentials in .env file');
+        console.error('   4. SSL configuration');
+        process.exit(1);
+      }
+      
+      // Wait before retrying
+      console.log(`⏳ Waiting 5 seconds before retry...`);
+      await new Promise(resolve => setTimeout(resolve, 5000));
+    }
   }
 }
 
