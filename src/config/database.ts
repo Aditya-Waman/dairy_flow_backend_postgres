@@ -18,7 +18,7 @@ export const AppDataSource = new DataSource({
   port: parseInt(process.env.DB_PORT || '5432'),
   username: process.env.DB_USERNAME || 'postgres',
   password: process.env.DB_PASSWORD || 'aditya',  
-  database: process.env.DB_NAME || 'dairyflow',
+  database: process.env.DB_NAME || 'neondb',
   entities: [SuperAdmin, Admin, Farmer, Stock, FeedRequest, FeedHistory],
   synchronize: false, // Disable synchronize to avoid schema conflicts
   logging: process.env.NODE_ENV === 'development',
@@ -31,6 +31,8 @@ export const AppDataSource = new DataSource({
     idleTimeoutMillis: 60000, // Increased idle timeout
     max: 20, // Maximum number of connections
     sslmode: process.env.DB_SSL === 'true' ? 'require' : 'prefer',
+    // Set timezone to Indian Standard Time
+    timezone: 'Asia/Kolkata',
   },
 });
 export async function connectDatabase() {
@@ -49,6 +51,10 @@ export async function connectDatabase() {
       if ('host' in AppDataSource.options && 'port' in AppDataSource.options) {
         console.log(`🏠 Host: ${(AppDataSource.options as any).host}:${(AppDataSource.options as any).port}`);
       }
+
+      // Set timezone to Indian Standard Time
+      await AppDataSource.query("SET timezone = 'Asia/Kolkata'");
+      console.log('🇮🇳 Database timezone set to Asia/Kolkata (IST)');
 
       // Handle graceful shutdown
       process.on('SIGINT', async () => {
