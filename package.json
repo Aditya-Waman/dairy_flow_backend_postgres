@@ -19,6 +19,7 @@
     "setup-timezone": "tsx src/scripts/setupTimezone.ts",
     "check-timezone": "tsx src/scripts/checkTimezone.ts",
     "test-timezone": "tsx src/scripts/testTimezoneFunctionality.ts",
+    "production-check": "tsx src/scripts/productionReadinessCheck.ts",
     "typecheck": "tsc --noEmit",
     "migration:generate": "typeorm-ts-node-commonjs migration:generate -d src/config/database.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/database.ts",

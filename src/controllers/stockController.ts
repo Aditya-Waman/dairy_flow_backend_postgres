@@ -4,6 +4,7 @@ import { createStockSchema, updateStockSchema } from '../utils/validators.js';
 import { AppError } from '../utils/errorHandler.js';
 import { AppDataSource } from '../config/database.js';
 import { Like, LessThan } from 'typeorm';
+import { getCurrentISTTime } from '../utils/timezone.js';
 
 export async function getAllStock(
   request: FastifyRequest, 
@@ -197,7 +198,7 @@ export async function updateStock(request: FastifyRequest, reply: FastifyReply) 
 
     Object.assign(stock, validation.data, {
       updatedBy: user.name,
-      lastUpdated: new Date(),
+      lastUpdated: getCurrentISTTime(),
     });
     
     const updatedStock = await stockRepo.save(stock);

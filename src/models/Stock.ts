@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, BeforeUpdate, Index } from 'typeorm';
+import { getCurrentISTTime } from '../utils/timezone.js';
 
 @Entity('stock')
 @Index(['name'])
@@ -39,7 +40,7 @@ export class Stock {
 
   @BeforeUpdate()
   updateLastUpdated() {
-    this.lastUpdated = new Date();
+    this.lastUpdated = getCurrentISTTime();
   }
 }
 
