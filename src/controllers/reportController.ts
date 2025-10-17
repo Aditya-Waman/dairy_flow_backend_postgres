@@ -257,3 +257,96 @@ export async function getFarmerReport(
   }
 }
 
+export async function getFeedStockReport(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  try {
+    const query = request.query as any;
+    const { startDate, endDate } = query;
+
+    const stockRepo = AppDataSource.getRepository(Stock);
+    const feedRequestRepo = AppDataSource.getRepository(FeedRequest);
+
+    // Get all stock items
+    const allStock = await stockRepo.find({
+      order: { name: 'ASC' }
+    });
+
+    // Build date filter for approved requests
+    const whereConditions: any = { status: 'Approved' };
+    
+    if (startDate || endDate) {
+      whereConditions.approvedAt = {};
+      if (startDate) {
+        whereConditions.approvedAt = MoreThanOrEqual(new Date(startDate));
+      }
+      if (endDate) {
+        whereConditions.approvedAt = LessThanOrEqual(new Date(endDate));
+      }
+    }
+
+    // Get approved requests in the date range
+    const approvedRequests = await feedRequestRepo.find({
+      where: whereConditions,
+      relations: ['feed'],
+      order: { approvedAt: 'DESC' }
+    });
+
+    // Calculate stock report for each feed
+    const feedStockReport = allStock.map(stock => {
+      // Calculate total sold (from approved requests in date range)
+      const soldInPeriod = approvedRequests
+        .filter(req => (req.feed as any).id === stock.id)
+        .reduce((total, req) => total + req.qtyBags, 0);
+
+      // For "Total Ordered", we need to consider stock additions
+      // Since we don't have a separate stock addition table, we'll use the current stock quantity
+      // plus the sold quantity as an approximation of total ordered
+      const totalOrdered = stock.quantityBags + soldInPeriod;
+
+      // Remaining stock is current stock quantity
+      const remainingStock = stock.quantityBags;
+
+      return {
+        feedId: stock.id,
+        feedName: stock.name,
+        feedType: stock.type,
+        totalOrdered,
+        totalSold: soldInPeriod,
+        remainingStock,
+        currentPrice: stock.sellingPrice,
+        purchasePrice: stock.purchasePrice,
+        bagWeight: stock.bagWeight,
+        lastUpdated: stock.lastUpdated
+      };
+    });
+
+    // Calculate summary totals
+    const summary = {
+      totalFeeds: feedStockReport.length,
+      totalOrdered: feedStockReport.reduce((sum, feed) => sum + feed.totalOrdered, 0),
+      totalSold: feedStockReport.reduce((sum, feed) => sum + feed.totalSold, 0),
+      totalRemaining: feedStockReport.reduce((sum, feed) => sum + feed.remainingStock, 0),
+      totalValue: feedStockReport.reduce((sum, feed) => sum + (feed.remainingStock * feed.currentPrice), 0)
+    };
+
+    return reply.send({
+      success: true,
+      summary,
+      feedStockReport,
+      dateRange: {
+        startDate: startDate || null,
+        endDate: endDate || null
+      }
+    });
+  } catch (error: any) {
+    request.log.error(error);
+    return reply.status(500).send({
+      statusCode: 500,
+      error: 'Internal Server Error',
+      message: error.message || 'Failed to generate feed stock report',
+    });
+  }
+}
+
