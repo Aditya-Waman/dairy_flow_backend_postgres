@@ -6,11 +6,90 @@ import { FeedHistory } from '../models/FeedHistory.js';
 import { createRequestSchema } from '../utils/validators.js';
 import { AppError } from '../utils/errorHandler.js';
 import { AppDataSource } from '../config/database.js';
+import { MoreThanOrEqual, LessThanOrEqual, Between } from 'typeorm';
+
+// Helper function to calculate default date range based on current date
+function getDefaultDateRange(): { startDate: string; endDate: string } {
+  const today = new Date();
+  const currentDay = today.getDate();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  
+  let startDay: number;
+  let endDay: number;
+  
+  if (currentDay >= 1 && currentDay <= 10) {
+    // 1st to 10th of the month
+    startDay = 1;
+    endDay = 10;
+  } else if (currentDay >= 11 && currentDay <= 20) {
+    // 11th to 20th of the month
+    startDay = 11;
+    endDay = 20;
+  } else {
+    // 21st to end of month
+    startDay = 21;
+    // Get last day of the month
+    endDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+  }
+  
+  const startDate = new Date(currentYear, currentMonth, startDay);
+  const endDate = new Date(currentYear, currentMonth, endDay);
+  
+  // Format as YYYY-MM-DD
+  const formatDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  return {
+    startDate: formatDate(startDate),
+    endDate: formatDate(endDate)
+  };
+}
 
 export async function getAllRequests(request: FastifyRequest, reply: FastifyReply) {
   try {
+    const query = request.query as any;
+    let { startDate, endDate } = query;
+
+    // Apply default date range if no dates are provided
+    if (!startDate && !endDate) {
+      const defaultRange = getDefaultDateRange();
+      startDate = defaultRange.startDate;
+      endDate = defaultRange.endDate;
+    }
+
     const feedRequestRepo = AppDataSource.getRepository(FeedRequest);
+    
+    // Build where conditions with date filtering
+    const whereConditions: any = {};
+    
+    if (startDate || endDate) {
+      if (startDate && endDate) {
+        // Both start and end dates provided - use Between
+        const startDateTime = new Date(startDate);
+        startDateTime.setUTCHours(0, 0, 0, 0);
+        const endDateTime = new Date(endDate);
+        endDateTime.setUTCHours(23, 59, 59, 999);
+        whereConditions.createdAt = Between(startDateTime, endDateTime);
+      } else if (startDate) {
+        // Only start date provided
+        const startDateTime = new Date(startDate);
+        startDateTime.setUTCHours(0, 0, 0, 0);
+        whereConditions.createdAt = MoreThanOrEqual(startDateTime);
+      } else if (endDate) {
+        // Only end date provided
+        const endDateTime = new Date(endDate);
+        endDateTime.setUTCHours(23, 59, 59, 999);
+        whereConditions.createdAt = LessThanOrEqual(endDateTime);
+      }
+    }
+    
     const requests = await feedRequestRepo.find({
+      where: Object.keys(whereConditions).length > 0 ? whereConditions : undefined,
       relations: ['farmer', 'feed'],
       order: { createdAt: 'DESC' }
     });
@@ -33,6 +112,10 @@ export async function getAllRequests(request: FastifyRequest, reply: FastifyRepl
       success: true,
       count: requests.length,
       data: transformedRequests,
+      dateRange: {
+        startDate: startDate || null,
+        endDate: endDate || null
+      }
     });
   } catch (error: any) {
     request.log.error(error);

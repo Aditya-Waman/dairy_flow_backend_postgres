@@ -13,13 +13,63 @@ interface ReportQuery {
   endDate?: string;
 }
 
+// Helper function to calculate default date range based on current date
+function getDefaultDateRange(): { startDate: string; endDate: string } {
+  const today = new Date();
+  const currentDay = today.getDate();
+  const currentMonth = today.getMonth();
+  const currentYear = today.getFullYear();
+  
+  let startDay: number;
+  let endDay: number;
+  
+  if (currentDay >= 1 && currentDay <= 10) {
+    // 1st to 10th of the month
+    startDay = 1;
+    endDay = 10;
+  } else if (currentDay >= 11 && currentDay <= 20) {
+    // 11th to 20th of the month
+    startDay = 11;
+    endDay = 20;
+  } else {
+    // 21st to end of month
+    startDay = 21;
+    // Get last day of the month
+    endDay = new Date(currentYear, currentMonth + 1, 0).getDate();
+  }
+  
+  const startDate = new Date(currentYear, currentMonth, startDay);
+  const endDate = new Date(currentYear, currentMonth, endDay);
+  
+  // Format as YYYY-MM-DD
+  const formatDate = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+  
+  return {
+    startDate: formatDate(startDate),
+    endDate: formatDate(endDate)
+  };
+}
+
 export async function getReports(
   request: FastifyRequest,
   reply: FastifyReply
 ) {
   try {
     const query = request.query as any;
-    const { farmerId, adminId, startDate, endDate } = query;
+    const { farmerId, adminId } = query;
+    let { startDate, endDate } = query;
+
+    // Apply default date range if no dates are provided
+    if (!startDate && !endDate) {
+      const defaultRange = getDefaultDateRange();
+      startDate = defaultRange.startDate;
+      endDate = defaultRange.endDate;
+    }
 
     const feedRequestRepo = AppDataSource.getRepository(FeedRequest);
     const adminRepo = AppDataSource.getRepository(Admin);
@@ -163,6 +213,10 @@ export async function getReports(
         approvedBy: r.approvedBy,
         approvedAt: r.approvedAt,
       })),
+      dateRange: {
+        startDate: startDate || null,
+        endDate: endDate || null
+      }
     });
   } catch (error: any) {
     request.log.error(error);
@@ -182,7 +236,14 @@ export async function getFarmerReport(
     const params = request.params as any;
     const query = request.query as any;
     const { farmerId } = params;
-    const { startDate, endDate } = query;
+    let { startDate, endDate } = query;
+
+    // Apply default date range if no dates are provided
+    if (!startDate && !endDate) {
+      const defaultRange = getDefaultDateRange();
+      startDate = defaultRange.startDate;
+      endDate = defaultRange.endDate;
+    }
 
     const farmerRepo = AppDataSource.getRepository(Farmer);
     const feedRequestRepo = AppDataSource.getRepository(FeedRequest);
@@ -268,6 +329,10 @@ export async function getFarmerReport(
       },
       feedBreakdown: Object.values(feedBreakdown),
       transactions: requests,
+      dateRange: {
+        startDate: startDate || null,
+        endDate: endDate || null
+      }
     });
   } catch (error: any) {
     request.log.error(error);
@@ -285,7 +350,14 @@ export async function getFeedStockReport(
 ) {
   try {
     const query = request.query as any;
-    const { startDate, endDate } = query;
+    let { startDate, endDate } = query;
+
+    // Apply default date range if no dates are provided
+    if (!startDate && !endDate) {
+      const defaultRange = getDefaultDateRange();
+      startDate = defaultRange.startDate;
+      endDate = defaultRange.endDate;
+    }
 
     const stockRepo = AppDataSource.getRepository(Stock);
     const feedRequestRepo = AppDataSource.getRepository(FeedRequest);
@@ -307,7 +379,7 @@ export async function getFeedStockReport(
         endDateTime.setUTCHours(23, 59, 59, 999);
         whereConditions.approvedAt = Between(startDateTime, endDateTime);
       } else if (startDate) {
-        // Only start date provided
+        // start date provided
         const startDateTime = new Date(startDate);
         startDateTime.setUTCHours(0, 0, 0, 0);
         whereConditions.approvedAt = MoreThanOrEqual(startDateTime);
@@ -389,7 +461,14 @@ export async function getAllFarmersTotal(
 ) {
   try {
     const query = request.query as any;
-    const { startDate, endDate } = query;
+    let { startDate, endDate } = query;
+
+    // Apply default date range if no dates are provided
+    if (!startDate && !endDate) {
+      const defaultRange = getDefaultDateRange();
+      startDate = defaultRange.startDate;
+      endDate = defaultRange.endDate;
+    }
 
     const farmerRepo = AppDataSource.getRepository(Farmer);
     const feedRequestRepo = AppDataSource.getRepository(FeedRequest);
