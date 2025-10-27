@@ -4,7 +4,7 @@ import { Farmer } from '../models/Farmer.js';
 import { Stock } from '../models/Stock.js';
 import { Admin } from '../models/Admin.js';
 import { AppDataSource } from '../config/database.js';
-import { MoreThanOrEqual, LessThanOrEqual } from 'typeorm';
+import { MoreThanOrEqual, LessThanOrEqual, Between } from 'typeorm';
 
 interface ReportQuery {
   farmerId?: string;
@@ -32,12 +32,23 @@ export async function getReports(
     }
 
     if (startDate || endDate) {
-      whereConditions.approvedAt = {};
-      if (startDate) {
-        whereConditions.approvedAt = MoreThanOrEqual(new Date(startDate));
-      }
-      if (endDate) {
-        whereConditions.approvedAt = LessThanOrEqual(new Date(endDate));
+      if (startDate && endDate) {
+        // Both start and end dates provided - use Between
+        const startDateTime = new Date(startDate);
+        startDateTime.setUTCHours(0, 0, 0, 0);
+        const endDateTime = new Date(endDate);
+        endDateTime.setUTCHours(23, 59, 59, 999);
+        whereConditions.approvedAt = Between(startDateTime, endDateTime);
+      } else if (startDate) {
+        // Only start date provided
+        const startDateTime = new Date(startDate);
+        startDateTime.setUTCHours(0, 0, 0, 0);
+        whereConditions.approvedAt = MoreThanOrEqual(startDateTime);
+      } else if (endDate) {
+        // Only end date provided
+        const endDateTime = new Date(endDate);
+        endDateTime.setUTCHours(23, 59, 59, 999);
+        whereConditions.approvedAt = LessThanOrEqual(endDateTime);
       }
     }
 
@@ -191,12 +202,23 @@ export async function getFarmerReport(
     };
 
     if (startDate || endDate) {
-      whereConditions.approvedAt = {};
-      if (startDate) {
-        whereConditions.approvedAt = MoreThanOrEqual(new Date(startDate));
-      }
-      if (endDate) {
-        whereConditions.approvedAt = LessThanOrEqual(new Date(endDate));
+      if (startDate && endDate) {
+        // Both start and end dates provided - use Between
+        const startDateTime = new Date(startDate);
+        startDateTime.setUTCHours(0, 0, 0, 0);
+        const endDateTime = new Date(endDate);
+        endDateTime.setUTCHours(23, 59, 59, 999);
+        whereConditions.approvedAt = Between(startDateTime, endDateTime);
+      } else if (startDate) {
+        // Only start date provided
+        const startDateTime = new Date(startDate);
+        startDateTime.setUTCHours(0, 0, 0, 0);
+        whereConditions.approvedAt = MoreThanOrEqual(startDateTime);
+      } else if (endDate) {
+        // Only end date provided
+        const endDateTime = new Date(endDate);
+        endDateTime.setUTCHours(23, 59, 59, 999);
+        whereConditions.approvedAt = LessThanOrEqual(endDateTime);
       }
     }
 
@@ -277,12 +299,23 @@ export async function getFeedStockReport(
     const whereConditions: any = { status: 'Approved' };
     
     if (startDate || endDate) {
-      whereConditions.approvedAt = {};
-      if (startDate) {
-        whereConditions.approvedAt = MoreThanOrEqual(new Date(startDate));
-      }
-      if (endDate) {
-        whereConditions.approvedAt = LessThanOrEqual(new Date(endDate));
+      if (startDate && endDate) {
+        // Both start and end dates provided - use Between
+        const startDateTime = new Date(startDate);
+        startDateTime.setUTCHours(0, 0, 0, 0);
+        const endDateTime = new Date(endDate);
+        endDateTime.setUTCHours(23, 59, 59, 999);
+        whereConditions.approvedAt = Between(startDateTime, endDateTime);
+      } else if (startDate) {
+        // Only start date provided
+        const startDateTime = new Date(startDate);
+        startDateTime.setUTCHours(0, 0, 0, 0);
+        whereConditions.approvedAt = MoreThanOrEqual(startDateTime);
+      } else if (endDate) {
+        // Only end date provided
+        const endDateTime = new Date(endDate);
+        endDateTime.setUTCHours(23, 59, 59, 999);
+        whereConditions.approvedAt = LessThanOrEqual(endDateTime);
       }
     }
 
@@ -346,6 +379,111 @@ export async function getFeedStockReport(
       statusCode: 500,
       error: 'Internal Server Error',
       message: error.message || 'Failed to generate feed stock report',
+    });
+  }
+}
+
+export async function getAllFarmersTotal(
+  request: FastifyRequest,
+  reply: FastifyReply
+) {
+  try {
+    const query = request.query as any;
+    const { startDate, endDate } = query;
+
+    const farmerRepo = AppDataSource.getRepository(Farmer);
+    const feedRequestRepo = AppDataSource.getRepository(FeedRequest);
+
+    // Get all farmers
+    const allFarmers = await farmerRepo.find({
+      where: { status: 'Active' },
+      order: { fullName: 'ASC' }
+    });
+
+    // Build date filter for approved requests
+    const whereConditions: any = { status: 'Approved' };
+    
+    if (startDate || endDate) {
+      if (startDate && endDate) {
+        // Both start and end dates provided - use Between
+        const startDateTime = new Date(startDate);
+        startDateTime.setUTCHours(0, 0, 0, 0);
+        const endDateTime = new Date(endDate);
+        endDateTime.setUTCHours(23, 59, 59, 999);
+        whereConditions.approvedAt = Between(startDateTime, endDateTime);
+      } else if (startDate) {
+        // Only start date provided
+        const startDateTime = new Date(startDate);
+        startDateTime.setUTCHours(0, 0, 0, 0);
+        whereConditions.approvedAt = MoreThanOrEqual(startDateTime);
+      } else if (endDate) {
+        // Only end date provided
+        const endDateTime = new Date(endDate);
+        endDateTime.setUTCHours(23, 59, 59, 999);
+        whereConditions.approvedAt = LessThanOrEqual(endDateTime);
+      }
+    }
+
+    // Get approved requests in the date range
+    const approvedRequests = await feedRequestRepo.find({
+      where: whereConditions,
+      relations: ['farmer', 'feed'],
+      order: { approvedAt: 'DESC' }
+    });
+
+    // Calculate total feed cost for each farmer
+    const farmersWithTotalCost = allFarmers.map((farmer, index) => {
+      // Filter requests for this farmer
+      const farmerRequests = approvedRequests.filter(req => 
+        (req.farmer as any).id === farmer.id
+      );
+
+      // Calculate total feed cost for this farmer
+      const totalFeedCost = farmerRequests.reduce((total, req) => {
+        // Use the price field directly (which is qtyBags * sellingPrice at time of approval)
+        // This is more accurate as it uses the actual price that was charged
+        // Ensure it's treated as a number, not a string
+        const price = typeof req.price === 'string' ? parseFloat(req.price) : Number(req.price);
+        return total + (isNaN(price) ? 0 : price);
+      }, 0);
+
+      // Format cost to 2 decimal places without unnecessary zeros
+      const formattedCost = totalFeedCost % 1 === 0 
+        ? totalFeedCost.toString() + '.00' 
+        : totalFeedCost.toFixed(2);
+
+      return {
+        serialNumber: index + 1,
+        farmerName: farmer.fullName,
+        dairyCode: farmer.code,
+        totalFeedCost: formattedCost,
+        farmerId: farmer.id
+      };
+    });
+
+    // Calculate grand total - convert each totalFeedCost to number before adding
+    const grandTotal = farmersWithTotalCost.reduce((total, farmer) => {
+      // Convert totalFeedCost string to number before adding
+      const cost = typeof farmer.totalFeedCost === 'string' ? parseFloat(farmer.totalFeedCost) : Number(farmer.totalFeedCost);
+      return total + (isNaN(cost) ? 0 : cost);
+    }, 0);
+
+    return reply.send({
+      success: true,
+      farmers: farmersWithTotalCost,
+      grandTotal: grandTotal,
+      totalFarmers: farmersWithTotalCost.length,
+      dateRange: {
+        startDate: startDate || null,
+        endDate: endDate || null
+      }
+    });
+  } catch (error: any) {
+    request.log.error(error);
+    return reply.status(500).send({
+      statusCode: 500,
+      error: 'Internal Server Error',
+      message: error.message || 'Failed to generate all farmers total report',
     });
   }
 }

@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { getReports, getFarmerReport, getFeedStockReport } from '../controllers/reportController.js';
+import { getReports, getFarmerReport, getFeedStockReport, getAllFarmersTotal } from '../controllers/reportController.js';
 import { requireAdmin } from '../middleware/auth.js';
 
 export async function reportRoutes(fastify: FastifyInstance) {
@@ -61,5 +61,22 @@ export async function reportRoutes(fastify: FastifyInstance) {
       },
     },
   }, getFeedStockReport);
+
+  // Get all farmers total report
+  fastify.get('/all-farmers-total', {
+    preHandler: requireAdmin,
+    schema: {
+      tags: ['Reports'],
+      description: 'Get all farmers total feed cost report with date range filtering',
+      security: [{ bearerAuth: [] }],
+      querystring: {
+        type: 'object',
+        properties: {
+          startDate: { type: 'string', description: 'Start date (ISO format)' },
+          endDate: { type: 'string', description: 'End date (ISO format)' },
+        },
+      },
+    },
+  }, getAllFarmersTotal);
 }
 
